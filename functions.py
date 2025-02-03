@@ -62,17 +62,17 @@ def create_assistant(client):
                 "type": "function",
                 "function": {
                     "name": "track_order",
-                    "description": "Tracking orders by order number",
+                    "description": "Tracking orders by customer's either: 1. phone number 2. Email 3. order number",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "order_number": {
+                            "order_by": {
                                 "type": "string",
-                                "description": "The order's number"
+                                "description": "The customer's either email, phone number or order number"
                             }
                         },
                         "required": [
-                            "order_number"
+                            "order_by"
                         ],
                         "additionalProperties": False
                     },
