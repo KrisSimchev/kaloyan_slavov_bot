@@ -9,7 +9,10 @@ import base64
 from googleapiclient.discovery import build
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import requests
 import config
+import requests
+from datetime import datetime, timedelta, timezone
 
 app = Flask(__name__)
 
@@ -75,11 +78,95 @@ def unsubscribe(name, phone):
     send_email("kris.simchev@gmail.com", subject, body)
     return "успешно изпратена заявка. очаквайте потвърждение."
 
-def track_order(order_number):
-    return "in courier"
+def track_order(order_by):
+    all_orders = get_all_orders(order_by)
+    if not all_orders:
+        phone_number = order_by
+        all_orders = get_all_orders("+359" + phone_number[1:])  # Replace first character with +359
+    if not all_orders:
+        all_orders = get_all_orders("359" + phone_number[1:])  # Replace first character with 359
+    if not all_orders:
+        all_orders = get_all_orders("0" + phone_number[4:])  # Replace first four characters with 0
+    if not all_orders:
+        all_orders = get_all_orders("0" + phone_number[3:])  # Replace first three characters with 0
+    if not all_orders:
+        formatted_phone = f"{phone_number[:3]} {phone_number[3:6]} {phone_number[6:]}"  # Add spaces
+        all_orders = get_all_orders(formatted_phone)
+    if not all_orders:
+        phone_number="0" + phone_number[3:]
+        formatted_phone = f"{phone_number[:3]} {phone_number[3:6]} {phone_number[6:]}"  # Add spaces
+        all_orders = get_all_orders(formatted_phone)
+    if not all_orders:
+        phone_number="0" + phone_number[2:]
+        formatted_phone = f"{phone_number[:3]} {phone_number[3:6]} {phone_number[6:]}"  # Add spaces
+        all_orders = get_all_orders(formatted_phone)
+
+
+
+    important_orders = []
+
+    for order in all_orders:
+        important_info = {
+            "Order Number": order.get("number"),
+            "Status": order.get("status"),
+            "Total": f"{order.get('total')} {order.get('currency_symbol', 'BGN')}",
+            "Payment Method": order.get("payment_method_title"),
+            "Shipping Method": order.get("shipping_lines")[0]["method_title"] if order.get("shipping_lines") else "Not specified",
+            "Products": [
+                {
+                    "Product Name": item["name"],
+                    "Quantity": item["quantity"],
+                    "Price": f"{item['total']} {order.get('currency_symbol', 'BGN')}",
+                }
+                for item in order.get("line_items", [])
+            ],
+            "Date Ordered": order.get("date_created"),
+            "Address": f"{order.get('billing', {}).get('address_1', '')} {order.get('billing', {}).get('address_1', '')}",
+            "Customer Name": f"{order.get('billing', {}).get('first_name', '')} {order.get('billing', {}).get('last_name', '')}",
+            "Phone": order.get("billing", {}).get("phone", "No phone provided"),
+        }
+        important_orders.append(important_info)
+
+    if important_orders: return important_orders
+    else: return "no orders found."
 
 def add_to_email_list(name, email):
     return "success"
+
+def get_all_orders(search_by):
+    """Fetches all orders from the WooCommerce store."""
+    orders = []
+    page = 1
+    per_page = 10  # Maximum allowed per request
+
+    date_after = (datetime.now(timezone.utc) - timedelta(days=14)).replace(microsecond=0).isoformat().replace('+00:00', 'Z')
+
+
+    url = f"{config.WC_API_BASE_URL}/orders"
+    params = {
+        "consumer_key": config.CONSUMER_KEY,
+        "consumer_secret": config.CONSUMER_SECRET,
+        "per_page": per_page,
+        "page": page,
+        "after": date_after,
+        "search": search_by
+    }
+
+    while True: 
+        response = requests.get(url, params=params)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if not data:  # If no more orders, stop
+                break
+            orders.extend(data)
+            page += 1  # Go to the next page
+        else:
+            print(f"Error {response.status_code}: {response.text}")
+            break
+        break
+
+    return orders
 
 @app.route('/start', methods=['GET'])
 def start():
@@ -154,7 +241,7 @@ def chat():
                         if tool_call.function.name == "track_order":
                             print("Executing track_order function")
                             arguments = json.loads(tool_call.function.arguments)
-                            output = track_order(arguments["order_number"])
+                            output = track_order(arguments["order_by"])
                         elif tool_call.function.name == "add_to_email_list":
                             print("Executing add_to_email_list function")
                             arguments = json.loads(tool_call.function.arguments)
@@ -211,4 +298,4 @@ def chat():
         }), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=8080, debug=True)
