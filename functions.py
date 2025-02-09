@@ -56,7 +56,7 @@ def create_assistant(client):
 
         assistant = client.beta.assistants.create(
             instructions=assistant_instructions,
-            model="chatgpt-4o-latest",
+            model="gpt-4o",
             tools=[{
                 "type": "file_search",
                 "type": "function",
