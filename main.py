@@ -7,12 +7,14 @@ import json
 import pickle
 import base64
 from googleapiclient.discovery import build
+from google.auth.transport.requests import Request
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import requests
 import config
 import requests
 from datetime import datetime, timedelta, timezone
+import pickle
 
 app = Flask(__name__)
 
@@ -22,9 +24,19 @@ assistant_id, vector_store_id = functions.create_assistant(client)
 purchase_id = 0
 
 def load_credentials():
-    """Load OAuth 2.0 Gmail API credentials."""
-    with open("token.pkl", "rb") as token_file:
-        creds = pickle.load(token_file)
+    creds = None
+    if os.path.exists('token.pkl'):
+        with open('token.pkl', 'rb') as token_file:
+            creds = pickle.load(token_file)
+
+    if creds and creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        with open('token.pkl', 'wb') as token_file:
+            pickle.dump(creds, token_file)
+    elif not creds:
+        print("Token not found or invalid. Please regenerate it.")
+        return None
+
     return creds
 
 def send_email(recipient_email, subject, body):
@@ -238,6 +250,8 @@ def chat():
                 # Handle the function call
                 for tool_call in run.required_action.submit_tool_outputs.tool_calls:
                     try:
+                        print("Arguments: ", tool_call.function.arguments)
+
                         if tool_call.function.name == "track_order":
                             print("Executing track_order function")
                             arguments = json.loads(tool_call.function.arguments)
