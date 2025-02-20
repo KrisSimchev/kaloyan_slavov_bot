@@ -4,6 +4,7 @@ import functions
 from prompts import assistant_instructions
 import time
 import json
+import datetime
 import pickle
 import base64
 from googleapiclient.discovery import build
@@ -15,6 +16,7 @@ import config
 import requests
 from datetime import datetime, timedelta, timezone
 import pickle
+import os
 
 app = Flask(__name__)
 
@@ -59,14 +61,11 @@ def send_email(recipient_email, subject, body):
 
 def purchase_products(products, name, address, phone, email):
     """Handles product purchases, assigns an order ID, and sends a confirmation email."""
-    global purchase_id
-    purchase_id += 1
 
-    subject = f"Заявка за нова поръчка {purchase_id}"
+    subject = f"Заявка за нова поръчка"
     product_list = "\n".join([f"{p['quantity']} X {p['name']} -   {p['price']}" for p in products])
 
     body = f"""
-    Поръчка номер: {purchase_id}
     Име: {name}
     {product_list}
     Адрес: {address}
@@ -74,7 +73,11 @@ def purchase_products(products, name, address, phone, email):
     Имейл: {email}
     """
 
+    #send_email("office@kaloyanslavov.com", subject, body)
+    #send_email("kaloyanslavovfit@abv.bg", subject, body)
+    #send_email("vikky_g@abv.bg", subject, body)
     send_email("kris.simchev@gmail.com", subject, body)
+
     return "успешно изпратена заявка. очаквайте потвърждение."
 
 def unsubscribe(name, phone):
@@ -87,6 +90,9 @@ def unsubscribe(name, phone):
     Телефон: {phone}
     """
 
+    #send_email("office@kaloyanslavov.com", subject, body)
+    #send_email("kaloyanslavovfit@abv.bg", subject, body)
+    #send_email("vikky_g@abv.bg", subject, body)
     send_email("kris.simchev@gmail.com", subject, body)
     return "успешно изпратена заявка. очаквайте потвърждение."
 
@@ -194,13 +200,28 @@ def start():
             "status": "error"
         }), 500
 
+def initialize_chat_file():
+    """Create chat history file if it doesn't exist"""
+    if not os.path.exists('chat_history.json'):
+        with open('chat_history.json', 'w') as f:
+            json.dump({}, f)
+        print("Created new chat_history.json file")
+    return True
+
+
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
+        # Initialize chat file if it doesn't exist
+        initialize_chat_file()
+        
         data = request.get_json()
         thread_id = data.get('thread_id')
+        print("thread_id : ", thread_id)
         user_message = data.get('message')
         
+        print("user_message : ", user_message)
+
         if not thread_id or not user_message:
             return jsonify({
                 "error": "Missing thread_id or message",
@@ -219,7 +240,7 @@ def chat():
         run = client.beta.threads.runs.create(
             thread_id=thread_id,
             assistant_id=assistant_id,
-            instructions=assistant_instructions
+            instructions=assistant_instructions,
         )
         print("Initialized run")
         
@@ -240,6 +261,53 @@ def chat():
                                     if message.role == 'assistant' 
                                     for content in message.content 
                                     if content.type == 'text'][0]
+                
+                # Save chat to JSON file
+                message_entry = {
+                    "timestamp": datetime.now().isoformat(),
+                    "user_message": user_message,
+                    "assistant_response": assistant_response
+                }
+                
+                try:
+                    # Read existing chat history
+                    with open('chat_history.json', 'r') as f:
+                        chat_history = json.load(f)
+                    
+                    # Check if this is a new thread
+                    if thread_id not in chat_history:
+                        # Initialize new chat thread
+                        chat_history[thread_id] = {
+                            "chat_started": datetime.now().isoformat(),
+                            "messages": [],
+                            "chat_number": len(chat_history) + 1  # Add chat number
+                        }
+                        print(f"Created new chat #{len(chat_history)}")
+                    
+                    # Append new message to the thread
+                    chat_history[thread_id]["messages"].append(message_entry)
+                    
+                    # Save updated chat history
+                    with open('chat_history.json', 'w') as f:
+                        json.dump(chat_history, f, indent=2)
+                    
+                    print(f"Saved message to chat #{chat_history[thread_id]['chat_number']}")
+                
+                except Exception as e:
+                    print(f"Error saving chat history: {str(e)}")
+                    # Create a new file if there was an error reading
+                    if not os.path.exists('chat_history.json'):
+                        chat_history = {
+                            thread_id: {
+                                "chat_started": datetime.now().isoformat(),
+                                "messages": [message_entry],
+                                "chat_number": 1
+                            }
+                        }
+                        with open('chat_history.json', 'w') as f:
+                            json.dump(chat_history, f, indent=2)
+                        print("Created new chat history file with first message")
+                
                 return jsonify({
                     "response": assistant_response,
                     "status": "success"
@@ -274,10 +342,10 @@ def chat():
                             print("Executing purchase_products function")
                             arguments = json.loads(tool_call.function.arguments)
                             output = purchase_products(
-                                name=arguments["name"],
-                                phone=arguments["phone"],
-                                address=arguments["address"],
-                                email=arguments["email"],
+                                name=arguments["customer_name"],
+                                phone=arguments["customer_phone_number"],
+                                address=arguments["full_delivery_address"],
+                                email=arguments["customer_email"],
                                 products=arguments["products"]
                             )
                             
@@ -310,6 +378,6 @@ def chat():
             "error": str(e),
             "status": "error"
         }), 500
-
+    
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=True)

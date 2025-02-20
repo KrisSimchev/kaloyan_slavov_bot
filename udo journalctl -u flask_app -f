@@ -1,0 +1,19 @@
+[0;1;32m●[0m flask_app.service - Gunicorn instance to serve Flask app
+     Loaded: loaded (]8;;file://ubuntu-s-1vcpu-2gb-fra1-01/etc/systemd/system/flask_app.service/etc/systemd/system/flask_app.service]8;;; [0;1;32menabled[0m; preset: [0;1;32menabled[0m)
+     Active: [0;1;32mactive (running)[0m since Wed 2025-02-12 11:46:22 UTC; 4s ago
+ Invocation: d3a862ee75ac420ca6e0e820822f325e
+   Main PID: 98680 (gunicorn)
+      Tasks: 3 (limit: 2318)
+     Memory: 112.9M (peak: 112.9M)
+        CPU: 2.594s
+     CGroup: /system.slice/flask_app.service
+             ├─[0;38;5;245m98680 /root/myenv/bin/python3 /root/myenv/bin/gunicorn -w 2 -b 0.0.0.0:80 main:app[0m
+             ├─[0;38;5;245m98681 /root/myenv/bin/python3 /root/myenv/bin/gunicorn -w 2 -b 0.0.0.0:80 main:app[0m
+             └─[0;38;5;245m98682 /root/myenv/bin/python3 /root/myenv/bin/gunicorn -w 2 -b 0.0.0.0:80 main:app[0m
+
+Feb 12 11:46:22 ubuntu-s-1vcpu-2gb-fra1-01 systemd[1]: Started flask_app.service - Gunicorn instance to serve Flask app.
+Feb 12 11:46:22 ubuntu-s-1vcpu-2gb-fra1-01 gunicorn[98680]: [2025-02-12 11:46:22 +0000] [98680] [INFO] Starting gunicorn 23.0.0
+Feb 12 11:46:22 ubuntu-s-1vcpu-2gb-fra1-01 gunicorn[98680]: [2025-02-12 11:46:22 +0000] [98680] [INFO] Listening at: http://0.0.0.0:80 (98680)
+Feb 12 11:46:22 ubuntu-s-1vcpu-2gb-fra1-01 gunicorn[98680]: [2025-02-12 11:46:22 +0000] [98680] [INFO] Using worker: sync
+Feb 12 11:46:22 ubuntu-s-1vcpu-2gb-fra1-01 gunicorn[98681]: [2025-02-12 11:46:22 +0000] [98681] [INFO] Booting worker with pid: 98681
+Feb 12 11:46:22 ubuntu-s-1vcpu-2gb-fra1-01 gunicorn[98682]: [2025-02-12 11:46:22 +0000] [98682] [INFO] Booting worker with pid: 98682
